@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import chalk from "chalk";
-import { MongoClient } from "mongodb";
+import { MongoClient,ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import joi from "joi";
 import dayjs from "dayjs";
@@ -136,6 +136,68 @@ app.post("/status",async(req,res)=>{
             }});
             res.sendStatus(200);
         }
+    }catch(error){
+        res.status(500).send(error);
+    }
+});
+app.delete("/messages/:id",async(req,res)=>{
+    const {id} = req.params;
+    const{user:from} = req.headers;
+    const objectID = {_id:new ObjectId(id)};
+    try{
+        const collection = db.collection("messages");
+        const message = await collection.findOne(objectID);
+        if(!message){
+            res.sendStatus(404);
+            return;
+        }
+        if(message.from!==from){
+            res.sendStatus(401);
+            return;
+        }
+        await collection.deleteOne(objectID);
+        res.sendStatus(200);
+    }catch(error){
+        res.status(500).send(error);
+    }
+});
+app.put("/messages/:id",async(req,res)=>{
+    const {id} = req.params;
+    let{user:from} = req.headers;
+    const objectID = {_id:new ObjectId(id)};
+    const validation = validatingData({
+        to: joi.string().required(),
+        text: joi.string().required(),
+        type: joi.string().valid("message","private_message").required()
+    },req.body);
+    if (validation.error) {
+        res.status(422).send(validation.error.details.map(
+            detail=>detail.message
+        ));
+        return;
+    }
+    try{
+        const collection = db.collection("messages");
+        const message = await collection.findOne(objectID);
+        if(!message){
+            res.sendStatus(404);
+            return;
+        }
+        if(message.from!==from){
+            res.sendStatus(401);
+            return;
+        }
+        from = await db.collection("participants").findOne({name:from});
+        if(from===null){
+            res.status(422).send("O remetente não está cadastrado");
+            return;
+        }
+        await collection.updateOne(objectID,{$set:{
+            to: req.body.to,
+            text: req.body.text,
+            type: req.body.type
+        }});
+        res.sendStatus(200);
     }catch(error){
         res.status(500).send(error);
     }
