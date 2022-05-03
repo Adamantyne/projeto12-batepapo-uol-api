@@ -10,11 +10,10 @@ dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
-
 const mongoClient = new MongoClient(process.env.MONGO_URI);
 let db = null;
 mongoClient.connect().then(()=>{
-    db = mongoClient.db(process.env.DB);
+    db = mongoClient.db(process.env.DATA_BASE);
     setInterval(excludingUser,15000);
 }).catch((error)=>{
     console.log(error);
